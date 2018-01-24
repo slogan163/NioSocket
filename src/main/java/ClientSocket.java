@@ -1,11 +1,9 @@
-package com.company;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
-public class SocketClientExample1 {
+public class ClientSocket {
 
     public void startClient() throws IOException, InterruptedException {
         InetSocketAddress hostAddress = new InetSocketAddress("localhost", 8090);

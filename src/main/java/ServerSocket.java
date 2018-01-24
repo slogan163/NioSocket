@@ -1,23 +1,17 @@
-package com.company;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.*;
+import java.nio.channels.*;
 import java.util.*;
 
-public class SocketServerExample1 {
-
+public class ServerSocket {
     private Selector selector;
     private Map<SocketChannel, List> dataMapper;
     private InetSocketAddress listenAddress;
 
-    public SocketServerExample1(String address, int port) {
+    public ServerSocket(String address, int port) {
         listenAddress = new InetSocketAddress(address, port);
         dataMapper = new HashMap<>();
     }
@@ -25,7 +19,7 @@ public class SocketServerExample1 {
     public static void main(String[] args) throws Exception {
         Runnable server = () -> {
             try {
-                new SocketServerExample1("localhost", 8090).startServer();
+                new ServerSocket("localhost", 8090).startServer();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -33,13 +27,13 @@ public class SocketServerExample1 {
 
         Runnable client = () -> {
             try {
-                new SocketClientExample1().startClient();
+                new ClientSocket().startClient();
             } catch (Exception e) {
                 e.printStackTrace();
             }
         };
 
-        new Thread(server).start();
+        new Thread(server);
         new Thread(client, "client-A").start();
         new Thread(client, "client-B").start();
 
@@ -112,4 +106,3 @@ public class SocketServerExample1 {
         System.out.println("Got: " + new String(data));
     }
 }
-
