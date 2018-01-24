@@ -33,7 +33,7 @@ public class ServerSocket {
             }
         };
 
-        new Thread(server);
+        new Thread(server).start();
         new Thread(client, "client-A").start();
         new Thread(client, "client-B").start();
 
