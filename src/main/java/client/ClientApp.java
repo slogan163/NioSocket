@@ -15,7 +15,7 @@ public class ClientApp extends Application {
         Parent rootNode = (Parent) FXMLLoader.load(getClass().getClassLoader().getResource("fxml/Client.fxml"));
 
         primaryStage.setTitle("Hello World");
-        primaryStage.setScene(new Scene(rootNode, 300, 275));
+        primaryStage.setScene(new Scene(rootNode, 800, 600));
         primaryStage.show();
     }
 
