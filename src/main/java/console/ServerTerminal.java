@@ -1,58 +1,37 @@
+package console;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.nio.*;
-import java.nio.channels.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.*;
 
-public class ServerSocket {
-    private Selector selector;
-    private Map<SocketChannel, List> dataMapper;
-    private InetSocketAddress listenAddress;
+public class ServerTerminal {
 
-    public ServerSocket(String address, int port) {
-        listenAddress = new InetSocketAddress(address, port);
+    private static Selector selector;
+    private static Map<SocketChannel, List> dataMapper;
+    private static InetSocketAddress listenAddress;
+
+    public static void main(String[] args) throws IOException {
+        listenAddress = new InetSocketAddress("localhost", 8090);
         dataMapper = new HashMap<>();
-    }
 
-    public static void main(String[] args) throws Exception {
-        Runnable server = () -> {
-            try {
-                new ServerSocket("localhost", 8090).startServer();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        };
-
-        Runnable client = () -> {
-            try {
-                new ClientSocket().startClient();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        };
-
-        new Thread(server).start();
-//        new Thread(client, "client-A").start();
-//        new Thread(client, "client-B").start();
-
-    }
-
-    private void startServer() throws IOException {
-        this.selector = Selector.open();
+        selector = Selector.open();
         ServerSocketChannel serverChanel = ServerSocketChannel.open();
         serverChanel.configureBlocking(false);
 
         serverChanel.socket().bind(listenAddress);
-        serverChanel.register(this.selector, SelectionKey.OP_ACCEPT);
-
-        System.out.println("Server started...");
+        serverChanel.register(selector, SelectionKey.OP_ACCEPT);
 
         while (true) {
-            this.selector.select();
+            selector.select();
+            Iterator keys = selector.selectedKeys().iterator();
 
-            Iterator keys = this.selector.selectedKeys().iterator();
             while (keys.hasNext()) {
                 SelectionKey key = (SelectionKey) keys.next();
                 keys.remove();
@@ -62,14 +41,13 @@ public class ServerSocket {
                 }
 
                 if (key.isAcceptable()) {
-                    this.accept(key);
+
                 } else if (key.isReadable()) {
-                    this.read(key);
+
                 }
             }
         }
     }
-
 
     private void accept(SelectionKey key) throws IOException {
         ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
@@ -104,12 +82,5 @@ public class ServerSocket {
         byte[] data = new byte[numRead];
         System.arraycopy(buffer.array(), 0, data, 0, numRead);
         System.out.println("Got: " + new String(data));
-
-        String message = "server echo " + new String(data);
-        buffer.clear();
-        buffer.put(message.getBytes());
-        buffer.flip();
-        channel.write(buffer);
-
     }
 }
