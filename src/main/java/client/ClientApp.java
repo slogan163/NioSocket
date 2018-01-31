@@ -12,7 +12,7 @@ public class ClientApp extends Application {
 
     @Override
     public void start(Stage primaryStage) throws IOException {
-        Parent rootNode = (Parent) FXMLLoader.load(getClass().getClassLoader().getResource("fxml/Client.fxml"));
+        Parent rootNode = (Parent) FXMLLoader.load(getClass().getClassLoader().getResource("fxml/client2.fxml"));
 
         primaryStage.setTitle("Hello World");
         primaryStage.setScene(new Scene(rootNode, 800, 600));

@@ -9,25 +9,46 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+import static org.apache.commons.io.IOUtils.closeQuietly;
 
 public class ServerTerminal {
 
-    private static Selector selector;
-    private static Map<SocketChannel, List> dataMapper;
-    private static InetSocketAddress listenAddress;
+    public final String HOST = "localhost";
+    public final int PORT = 8090;
+
+    private Selector selector;
+    private ServerSocketChannel serverChanel;
+    private Map<SocketChannel, String> chanelUserMapper = new HashMap<>();
 
     public static void main(String[] args) throws IOException {
-        listenAddress = new InetSocketAddress("localhost", 8090);
-        dataMapper = new HashMap<>();
+        new ServerTerminal().start();
+    }
 
+    public void start() {
+        try {
+            openChanel();
+            work();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            closeQuietly(selector);
+            closeQuietly(serverChanel);
+        }
+    }
+
+    private void openChanel() throws IOException {
         selector = Selector.open();
-        ServerSocketChannel serverChanel = ServerSocketChannel.open();
+        serverChanel = ServerSocketChannel.open();
         serverChanel.configureBlocking(false);
-
-        serverChanel.socket().bind(listenAddress);
+        serverChanel.socket().bind(new InetSocketAddress(HOST, PORT));
         serverChanel.register(selector, SelectionKey.OP_ACCEPT);
+    }
 
+    private void work() throws IOException {
         while (true) {
             selector.select();
             Iterator keys = selector.selectedKeys().iterator();
@@ -37,44 +58,38 @@ public class ServerTerminal {
                 keys.remove();
 
                 if (!key.isValid()) {
+                    System.out.println("Key not valid: " + key);
                     continue;
                 }
 
                 if (key.isAcceptable()) {
-
+                    acceptNewConnection(key);
                 } else if (key.isReadable()) {
-
+                    readChannel(key);
                 }
             }
         }
     }
 
-    private void accept(SelectionKey key) throws IOException {
+    private void acceptNewConnection(SelectionKey key) throws IOException {
         ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
         SocketChannel channel = serverChannel.accept();
         channel.configureBlocking(false);
-        Socket socket = channel.socket();
-        SocketAddress remoteAddr = socket.getRemoteSocketAddress();
-        System.out.println("Connected to: " + remoteAddr);
 
-        // register channel with selector for further IO
-        dataMapper.put(channel, new ArrayList());
+        System.out.println("New connection by address: " + channel.socket().getRemoteSocketAddress());
+
+        chanelUserMapper.put(channel, "");
         channel.register(this.selector, SelectionKey.OP_READ);
     }
 
-    //read from the socket channel
-    private void read(SelectionKey key) throws IOException {
+    private void readChannel(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
         ByteBuffer buffer = ByteBuffer.allocate(1024);
         int numRead = -1;
         numRead = channel.read(buffer);
 
         if (numRead == -1) {
-            this.dataMapper.remove(channel);
-            Socket socket = channel.socket();
-            SocketAddress remoteAddr = socket.getRemoteSocketAddress();
-            System.out.println("Connection closed by client: " + remoteAddr);
-            channel.close();
+            closeConnectionWithClient(channel);
             key.cancel();
             return;
         }
@@ -82,5 +97,15 @@ public class ServerTerminal {
         byte[] data = new byte[numRead];
         System.arraycopy(buffer.array(), 0, data, 0, numRead);
         System.out.println("Got: " + new String(data));
+    }
+
+    private void closeConnectionWithClient(SocketChannel channel) {
+        String clientName = chanelUserMapper.get(channel);
+        this.chanelUserMapper.remove(channel);
+
+        System.out.println("Connection closed with client: " + clientName +
+                " by address " + channel.socket().getRemoteSocketAddress());
+
+        closeQuietly(channel);
     }
 }
