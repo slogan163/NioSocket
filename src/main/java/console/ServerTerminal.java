@@ -33,28 +33,33 @@ public class ServerTerminal {
     }
 
     public void start() {
+        openChanel();
+        work();
+    }
+
+    private void openChanel() {
         try {
-            openChanel();
-            work();
+            selector = Selector.open();
+            serverChanel = ServerSocketChannel.open();
+            serverChanel.configureBlocking(false);
+            serverChanel.socket().bind(new InetSocketAddress(HOST, PORT));
+            serverChanel.register(selector, SelectionKey.OP_ACCEPT);
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
             closeQuietly(selector);
             closeQuietly(serverChanel);
         }
     }
 
-    private void openChanel() throws IOException {
-        selector = Selector.open();
-        serverChanel = ServerSocketChannel.open();
-        serverChanel.configureBlocking(false);
-        serverChanel.socket().bind(new InetSocketAddress(HOST, PORT));
-        serverChanel.register(selector, SelectionKey.OP_ACCEPT);
-    }
-
-    private void work() throws IOException {
+    private void work() {
         while (true) {
-            selector.select();
+            try {
+                selector.select();
+            } catch (IOException e) {
+                e.printStackTrace();
+                closeQuietly(selector);
+                closeQuietly(serverChanel);
+            }
             Iterator keys = selector.selectedKeys().iterator();
 
             while (keys.hasNext()) {
@@ -66,10 +71,23 @@ public class ServerTerminal {
                     continue;
                 }
 
-                if (key.isAcceptable()) {
-                    acceptNewConnection(key);
-                } else if (key.isReadable()) {
-                    readChannel(key);
+                try {
+                    if (key.isAcceptable()) {
+                        acceptNewConnection(key);
+                    } else if (key.isReadable()) {
+                        readChannel(key);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    try (SocketChannel channel = (SocketChannel) key.channel()) {
+                        chanelUserMapper.remove(channel);
+
+                        key.cancel();
+                        channel.close();
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
+
                 }
             }
         }

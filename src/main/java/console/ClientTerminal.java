@@ -40,6 +40,11 @@ public class ClientTerminal {
             while (!(line = in.nextLine()).equals("exit")) {
                 sendMessage(client, new Message(TEXT, line));
             }
+
+            readThread.stop();
+            in.close();
+            client.close();
+            System.exit(0);
         }
     }
 
