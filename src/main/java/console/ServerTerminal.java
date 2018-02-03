@@ -1,9 +1,9 @@
 package console;
 
+import shared.Message;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -14,6 +14,10 @@ import java.util.Iterator;
 import java.util.Map;
 
 import static org.apache.commons.io.IOUtils.closeQuietly;
+import static org.apache.commons.lang3.SerializationUtils.deserialize;
+import static org.apache.commons.lang3.SerializationUtils.serialize;
+import static shared.Message.MessageType.TEXT;
+import static shared.Message.MessageType.USER_NAME;
 
 public class ServerTerminal {
 
@@ -85,7 +89,7 @@ public class ServerTerminal {
     private void readChannel(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
         ByteBuffer buffer = ByteBuffer.allocate(1024);
-        int numRead = -1;
+        int numRead;
         numRead = channel.read(buffer);
 
         if (numRead == -1) {
@@ -96,7 +100,40 @@ public class ServerTerminal {
 
         byte[] data = new byte[numRead];
         System.arraycopy(buffer.array(), 0, data, 0, numRead);
-        System.out.println("Got: " + new String(data));
+        Message message = (Message) deserialize(data);
+
+        System.out.println("Got: " + message.getType() + " " + message.getText());
+
+        workWithMessage(channel, message);
+    }
+
+    private void workWithMessage(SocketChannel channel, Message message) {
+        if (message.getType().equals(USER_NAME)) {
+            String userName = message.getText();
+            chanelUserMapper.put(channel, userName);
+            sendMessageForAll(userName, " entered in a chat");
+        } else if (message.getType().equals(TEXT)) {
+            String sender = chanelUserMapper.get(channel);
+            sendMessageForAll(sender, message.getText());
+        }
+    }
+
+    private void sendMessageForAll(String sender, String text) {
+        Message messageForAll = new Message(TEXT, String.format("%s: %s", sender, text));
+        byte[] bytes = serialize(messageForAll);
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+
+        chanelUserMapper.keySet().forEach(client -> {
+            try {
+                client.write(buffer);
+                buffer.rewind();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+
+        buffer.clear();
+        System.out.println("Send: " + messageForAll.getText());
     }
 
     private void closeConnectionWithClient(SocketChannel channel) {

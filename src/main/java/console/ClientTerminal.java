@@ -1,18 +1,35 @@
 package console;
 
+import shared.Message;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Scanner;
 
+import static org.apache.commons.lang3.SerializationUtils.deserialize;
+import static org.apache.commons.lang3.SerializationUtils.serialize;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static shared.Message.MessageType.TEXT;
+import static shared.Message.MessageType.USER_NAME;
+
 public class ClientTerminal {
 
-    public static void main(String[] args) throws IOException {
-        InetSocketAddress hostAddress = new InetSocketAddress("localhost", 8090);
-        Scanner in = new Scanner(System.in);
+    static String CLIENT_NAME = "anon";
+    static InetSocketAddress HOST_ADDRESS = new InetSocketAddress("localhost", 8090);
 
-        try (SocketChannel client = SocketChannel.open(hostAddress)) {
+    public static void main(String[] args) throws IOException {
+        new ClientTerminal().start();
+    }
+
+    private void start() throws IOException {
+        try (SocketChannel client = SocketChannel.open(HOST_ADDRESS);
+             Scanner in = new Scanner(System.in)) {
+
+            readName(in);
+            sendName(client);
+
             Thread readThread = new Thread(() -> {
                 printMessages(client);
             });
@@ -21,25 +38,43 @@ public class ClientTerminal {
 
             String line;
             while (!(line = in.nextLine()).equals("exit")) {
-                byte[] message = line.getBytes();
-                ByteBuffer buffer = ByteBuffer.wrap(message);
-                client.write(buffer);
-                System.out.println("Client send: " + message);
-                buffer.clear();
+                sendMessage(client, new Message(TEXT, line));
             }
         }
     }
 
-    private static void printMessages(SocketChannel client) {
+    private void sendName(SocketChannel client) throws IOException {
+        sendMessage(client, new Message(USER_NAME, CLIENT_NAME));
+    }
+
+    private void readName(Scanner in) {
+        System.out.println("Enter your name: ");
+        String name = in.nextLine();
+        if (isNotBlank(name)) {
+            CLIENT_NAME = name;
+        }
+    }
+
+    private void sendMessage(SocketChannel client, Message message) throws IOException {
+        byte[] bytes = serialize(message);
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        client.write(buffer);
+        buffer.clear();
+    }
+
+    private void printMessages(SocketChannel client) {
         ByteBuffer buffer = ByteBuffer.allocate(1024);
 
-        while (client.isOpen()){
+        while (client.isConnected()) {
             try {
                 client.read(buffer);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            System.out.println("Buffer: " + new String(buffer.array()));
+            Message message = (Message) deserialize(buffer.array());
+
+            System.out.println(message.getText());
+            buffer.clear();
         }
     }
 }
